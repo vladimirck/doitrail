@@ -1,0 +1,12 @@
+GET https://api.datacite.org/dois/10.14454/FXWS-0523
+
+###
+
+GET https://api.datacite.org/dois/10.1007/s43545-023-00772-x
+###
+
+GET https://link.springer.com/article/10.1007/s43545-023-00772-x
+###
+
+GET https://journals.aps.org/prl/abstract/10.1103/PhysRevLett.134.178101
+###
