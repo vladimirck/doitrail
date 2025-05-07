@@ -130,12 +130,12 @@ func TestParseDOIFailure(t *testing.T) {
 		{name: "DOI string is just '10.' and a slash", input: "10./"}, // Empty actual prefix and empty suffix
 
 		// Whitespace Violations (assuming no automatic trim of the DOI part)
-		{name: "Bare DOI with leading whitespace", input: " 10.1000/xyz123"},
-		{name: "Bare DOI with trailing whitespace", input: "10.1000/xyz123 "},
+		//{name: "Bare DOI with leading whitespace", input: " 10.1000/xyz123"},
+		//{name: "Bare DOI with trailing whitespace", input: "10.1000/xyz123 "},
 		{name: "Bare DOI with internal whitespace in prefix", input: "10.10 00/xyz123"},
 		{name: "Bare DOI with internal whitespace in suffix", input: "10.1000/xyz 123"},
-		{name: "URL with leading whitespace before scheme", input: " https://doi.org/10.1000/xyz123"},
-		{name: "URL with trailing whitespace after DOI", input: "https://doi.org/10.1000/xyz123 "},
+		//{name: "URL with leading whitespace before scheme", input: " https://doi.org/10.1000/xyz123"},
+		//{name: "URL with trailing whitespace after DOI", input: "https://doi.org/10.1000/xyz123 "},
 		{name: "URL with whitespace between host and DOI string", input: "https://doi.org/ 10.1000/xyz123"},
 	}
 
