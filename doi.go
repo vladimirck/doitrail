@@ -1,11 +1,9 @@
 package main
 
 import (
-	"errors"
 	"fmt"
-	"net/url"
+	"regexp"
 	"strings"
-	"unicode"
 )
 
 type DOI struct {
@@ -13,61 +11,64 @@ type DOI struct {
 	suffix  string
 }
 
-func (doi *DOI) parseDOI(doiID string) error {
+var doiPattern = regexp.MustCompile(`^(10\.[0-9.]+)\/([^?#]+)(?:[?#].*)?$`)
 
-	doiID = strings.TrimSpace(doiID)
+func (doi *DOI) parseDOI(inputDoiStr string) error {
+	// Trim leading/trailing whitespace from the input string.
+	doiStr := strings.TrimSpace(inputDoiStr)
 
-	if strings.ContainsFunc(doiID, unicode.IsSpace) {
-		return errors.New("DOI strings (or URL) cannot contains blank space")
+	// If the string is empty after trimming, it's not a valid DOI.
+	if doiStr == "" {
+		return fmt.Errorf("the string is empty")
 	}
 
-	if len(doiID) == 0 {
-		return errors.New("expected a DOI code, but received an empty string")
-	}
+	var coreDOI string // This will hold the DOI string after stripping presentation prefixes.
 
-	link, err := url.Parse(doiID)
-
-	doiParts := []string{}
-
-	if err == nil && link.Hostname() == "" {
-
-		doiParts = strings.Split(link.Path, "/")
-
-	} else if err == nil && (strings.ToLower(link.Hostname()) == "doi.org" || strings.ToLower(link.Hostname()) == "dx.doi.org") {
-
-		if strings.ToLower(link.Scheme) != "http" && strings.ToLower(link.Scheme) != "https" {
-			return fmt.Errorf("the scheme \"%v\" in not permited in a DOI identifier", link.Scheme)
-		}
-
-		doiParts = strings.Split(link.Path[1:], "/")
-
-	} else if err == nil && link.Hostname() != "" {
-
-		return fmt.Errorf("the hostame \"%v\" in not permited in a DOI identifier", link.Hostname())
-
+	// Check for and strip common DOI presentation prefixes.
+	// The order of checks matters for specificity (e.g., "https://" before "http://").
+	if strings.HasPrefix(strings.ToLower(doiStr), "https://doi.org/") {
+		coreDOI = doiStr[len("https://doi.org/"):]
+	} else if strings.HasPrefix(strings.ToLower(doiStr), "http://doi.org/") {
+		coreDOI = doiStr[len("http://doi.org/"):]
+	} else if strings.HasPrefix(strings.ToLower(doiStr), "https://dx.doi.org/") {
+		coreDOI = doiStr[len("https://dx.doi.org/"):]
+	} else if strings.HasPrefix(strings.ToLower(doiStr), "http://dx.doi.org/") {
+		coreDOI = doiStr[len("http://dx.doi.org/"):]
+	} else if strings.HasPrefix(strings.ToLower(doiStr), "doi:") {
+		// Handle "doi:", "DOI:", "Doi:", etc.
+		// Slice the original string to preserve the case of the actual DOI part.
+		coreDOI = doiStr[len("doi:"):]
 	} else {
-		doiParts = strings.Split(doiID, "/")
+		// If no known prefix is found, assume it's a bare DOI string.
+		coreDOI = doiStr
 	}
 
-	if len(doiParts) != 2 {
-		return fmt.Errorf("the preffix \"%v\" is malformed", doiParts)
+	// After stripping presentation prefixes, the coreDOI might be empty
+	// (e.g., if the input was just "https://doi.org/" or "doi:").
+	// It also might have leading spaces if the original string was like "doi: 10.xxx/yyy"
+	// The regex `^...$` will handle such leading spaces in coreDOI by not matching.
+	if strings.TrimSpace(coreDOI) == "" { // Check again if coreDOI itself became empty
+		return fmt.Errorf("invalid DOI indetifier: %v", inputDoiStr)
 	}
 
-	//fmt.Printf("Good DOI identifier: preffix: %v; suffix: %v\n", doiParts[0], doiParts[1])
+	// The query and fragment must be ignore
 
-	if len(doiParts[0]) < 7 {
-		return fmt.Errorf("malformed DOI identifier ( missing or too short preffix): preffix: %v; suffix: %v", doiParts[0], doiParts[1])
+	// Attempt to match the coreDOI against our defined DOI pattern.
+	matches := doiPattern.FindStringSubmatch(coreDOI)
+
+	// If there's no match or not enough capturing groups, it's not a valid DOI structure.
+	// The regex expects 3 matches: the full string, the prefix, and the suffix.
+	if len(matches) != 3 {
+		return fmt.Errorf("unexpected number of matches for: %v", matches)
 	}
 
-	if doiParts[0][0:3] != "10." {
-		return fmt.Errorf("malformed DOI identifier (preffix must start with \"10.0\"): preffix: %v; suffix: %v", doiParts[0], doiParts[1])
-	}
+	// Extract the prefix (matches[1]) and suffix (matches[2]).
+	// matches[0] is the entire string matched by the regex (e.g., "10.1234/abc").
+	doi.preffix = matches[1]
+	doi.suffix = matches[2]
 
-	if len(doiParts[1]) == 0 {
-		return fmt.Errorf("malformed DOI identifier ( missing suffix): preffix: %v; suffix: %v", doiParts[0], doiParts[1])
-	}
-
-	doi.preffix = doiParts[0]
-	doi.suffix = doiParts[1]
+	// The regex already ensures:
+	// - Prefix starts with "10." followed by digits/dots ([0-9.]+)
+	// - Suffix is not empty (.+)
 	return nil
 }
